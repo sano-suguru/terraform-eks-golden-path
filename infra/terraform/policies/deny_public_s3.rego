@@ -3,21 +3,20 @@
 
 package terraform
 
-# 禁止されたACLのリスト
-public_acls = ["public-read", "public-read-write", "authenticated-read"]
+import rego.v1
 
 # S3 Bucket ACLがpublic-readの場合は禁止
-deny[msg] {
+deny contains msg if {
     resource := input.resource_changes[_]
     resource.type == "aws_s3_bucket_acl"
     acl := resource.change.after.acl
-    public_acls[_] == acl
+    acl in ["public-read", "public-read-write", "authenticated-read"]
     
     msg := sprintf("S3 Bucket ACL '%s' uses public ACL '%s'. This is not allowed.", [resource.address, acl])
 }
 
 # S3 Bucket Public Access Blockが無効の場合は警告
-warn[msg] {
+warn contains msg if {
     resource := input.resource_changes[_]
     resource.type == "aws_s3_bucket_public_access_block"
     resource.change.after.block_public_acls == false
@@ -25,7 +24,7 @@ warn[msg] {
     msg := sprintf("S3 Bucket '%s' has block_public_acls disabled. Consider enabling it.", [resource.address])
 }
 
-warn[msg] {
+warn contains msg if {
     resource := input.resource_changes[_]
     resource.type == "aws_s3_bucket_public_access_block"
     resource.change.after.block_public_policy == false
