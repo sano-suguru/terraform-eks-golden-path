@@ -61,4 +61,3 @@ missing_tags(tags) := missing if {
     required := {tag | tag := required_tags[_]}
     missing := required - present
 }
-}
