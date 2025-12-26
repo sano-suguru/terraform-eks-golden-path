@@ -75,26 +75,59 @@ make kind-grafana  # http://localhost:3000 (admin/prom-operator)
 
 > ⚠️ **注意**: AWS 料金が発生します。検証後は必ず `make eks-destroy` を実行してください。
 
+### 前提条件
+
+- AWS CLI 2.x（認証設定済み）
+- Terraform 1.x
+- kubectl / Helm 3.x
+- EKS/EC2/VPC/IAM/ELB の作成権限
+
+### コスト発生リソース
+
+| リソース | 概算コスト |
+|---------|-----------|
+| EKS コントロールプレーン | ~$0.10/時 |
+| EC2 ノード（t3.medium x2） | ~$0.08/時 |
+| ALB | ~$0.02/時 + 転送量 |
+
+**1日放置で約$5〜10 発生します。検証後は必ず削除してください。**
+
+### 手順
+
 ```bash
-# 1. Terraform で EKS 構築
+# 1. Terraform 初期化
 make tf-init
+
+# 2. EKS 構築（約15分）
 make eks-apply
 
-# 2. kubeconfig 設定
+# 3. kubeconfig 設定
 make eks-kubeconfig
 
-# 3. AWS Load Balancer Controller 導入
+# 4. AWS Load Balancer Controller 導入（IRSA使用）
 make eks-install-lbc
 
-# 4. アプリデプロイ
+# 5. アプリデプロイ
 make eks-deploy
 
-# 5. ALB DNS 確認
+# 6. ALB DNS 確認（払い出しに数分かかる）
 make eks-url
+# => http://xxxxx.elb.amazonaws.com
 
-# 6. 片付け
+# 7. 動作確認
+curl http://$(make eks-url)/healthz
+
+# 8. 片付け（必須！）
 make eks-destroy
 ```
+
+### Terraform が作成するリソース
+
+- VPC（3 AZ パブリックサブネット）
+- EKS クラスター（v1.31）
+- マネージドノードグループ（t3.medium x2）
+- OIDC Provider（IRSA 用）
+- IAM ロール（AWS Load Balancer Controller 用）
 
 ## CI/Guardrails
 
