@@ -11,8 +11,13 @@ ingress:
   hosts:
     - host: ""
       paths:
+        # 公開するパスのみ明示（/metrics は外部公開しない）
+        - path: /healthz
+          pathType: Exact
+        - path: /readyz
+          pathType: Exact
         - path: /
-          pathType: Prefix
+          pathType: Exact
 
 # ServiceMonitor for Prometheus (disabled - Prometheus not installed on EKS)
 serviceMonitor:
