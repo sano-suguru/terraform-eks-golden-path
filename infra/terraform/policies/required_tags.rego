@@ -3,34 +3,59 @@
 
 package terraform
 
-import rego.v1
-
 # 必須タグのリスト
-required_tags := {"Environment", "Project", "ManagedBy"}
+required_tags = ["Environment", "Project", "ManagedBy"]
 
 # タグをサポートするリソースタイプ
-taggable_resources := {
+taggable_resources = [
     "aws_vpc",
     "aws_subnet",
     "aws_security_group",
     "aws_eks_cluster",
     "aws_eks_node_group",
     "aws_iam_role",
-    "aws_internet_gateway",
-}
+    "aws_internet_gateway"
+]
 
 # 必須タグが欠けている場合は警告
-warn contains msg if {
+warn[msg] {
     resource := input.resource_changes[_]
-    resource.type in taggable_resources
-    resource.change.actions[_] in ["create", "update"]
+    is_taggable(resource.type)
+    is_create_or_update(resource.change.actions)
     
-    # tags_allまたはtagsをチェック
-    tags := object.get(resource.change.after, "tags_all", object.get(resource.change.after, "tags", {}))
+    # tagsをチェック
+    tags := get_tags(resource)
     
     # 必須タグが存在するか確認
-    missing := required_tags - {key | tags[key]}
+    missing := missing_tags(tags)
     count(missing) > 0
     
     msg := sprintf("Resource '%s' is missing required tags: %v", [resource.address, missing])
+}
+
+# ヘルパー関数
+is_taggable(resource_type) {
+    taggable_resources[_] == resource_type
+}
+
+is_create_or_update(actions) {
+    actions[_] == "create"
+}
+
+is_create_or_update(actions) {
+    actions[_] == "update"
+}
+
+get_tags(resource) = tags {
+    tags := resource.change.after.tags_all
+} else = tags {
+    tags := resource.change.after.tags
+} else = tags {
+    tags := {}
+}
+
+missing_tags(tags) = missing {
+    present := {key | tags[key]}
+    required := {tag | tag := required_tags[_]}
+    missing := required - present
 }

@@ -3,28 +3,28 @@
 
 package terraform
 
-import rego.v1
-
 # 違反を検出するルール
-deny contains msg if {
+deny[msg] {
     # Security Groupのingress ruleをチェック
     resource := input.resource_changes[_]
     resource.type == "aws_security_group"
-    resource.change.after.ingress[_].cidr_blocks[_] == "0.0.0.0/0"
-    resource.change.after.ingress[_].from_port <= 22
-    resource.change.after.ingress[_].to_port >= 22
+    ingress := resource.change.after.ingress[_]
+    ingress.cidr_blocks[_] == "0.0.0.0/0"
+    ingress.from_port <= 22
+    ingress.to_port >= 22
     
     msg := sprintf("Security Group '%s' allows SSH (port 22) from 0.0.0.0/0. This is not allowed.", [resource.address])
 }
 
 # Security Groupで0.0.0.0/0からの全ポートを禁止
-deny contains msg if {
+deny[msg] {
     resource := input.resource_changes[_]
     resource.type == "aws_security_group"
-    resource.change.after.ingress[_].cidr_blocks[_] == "0.0.0.0/0"
-    resource.change.after.ingress[_].from_port == 0
-    resource.change.after.ingress[_].to_port == 0
-    resource.change.after.ingress[_].protocol == "-1"
+    ingress := resource.change.after.ingress[_]
+    ingress.cidr_blocks[_] == "0.0.0.0/0"
+    ingress.from_port == 0
+    ingress.to_port == 0
+    ingress.protocol == "-1"
     
     msg := sprintf("Security Group '%s' allows all traffic from 0.0.0.0/0. This is not allowed.", [resource.address])
 }
