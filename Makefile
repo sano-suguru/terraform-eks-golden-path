@@ -136,15 +136,7 @@ eks-install-lbc: eks-create-lbc-sa ## Install AWS Load Balancer Controller
 
 eks-create-lbc-sa: ## Create ServiceAccount for AWS LBC with IRSA
 	@LBC_ROLE_ARN=$$(cd infra/terraform/envs/dev && terraform output -raw aws_load_balancer_controller_role_arn) && \
-	kubectl apply -f - <<EOF
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: aws-load-balancer-controller
-  namespace: kube-system
-  annotations:
-    eks.amazonaws.com/role-arn: $$LBC_ROLE_ARN
-EOF
+	echo "apiVersion: v1\nkind: ServiceAccount\nmetadata:\n  name: aws-load-balancer-controller\n  namespace: kube-system\n  annotations:\n    eks.amazonaws.com/role-arn: $$LBC_ROLE_ARN" | kubectl apply -f -
 
 eks-deploy: ## Deploy app to EKS using Helm
 	helm upgrade --install $(HELM_RELEASE) ./deploy/helm/golden-path-api \
