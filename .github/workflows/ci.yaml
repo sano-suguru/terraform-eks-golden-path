@@ -69,9 +69,20 @@ jobs:
         with:
           context: ./app
           push: false
+          load: true
           tags: terraform-eks-golden-path:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.31.0
+        with:
+          image-ref: "terraform-eks-golden-path:${{ github.sha }}"
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
 
   helm:
     name: Helm Lint
