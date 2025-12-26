@@ -39,6 +39,17 @@ git push -u origin feature/新機能名
 # GitHub で PR を作成 → レビュー → マージ
 ```
 
+### GitHub CLI 使用時の注意
+
+- `gh` コマンド使用時は必ず `GH_PAGER=''` を付ける（ページングによるブロックを防止）
+
+```bash
+# 例
+GH_PAGER='' gh api repos/owner/repo/branches/main/protection
+GH_PAGER='' gh pr list
+GH_PAGER='' gh issue list
+```
+
 ### すべての操作は Makefile 経由
 
 ```bash
