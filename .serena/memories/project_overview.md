@@ -12,7 +12,7 @@ Platform Engineering ポートフォリオとして、EKS + kind の二段構え
 
 ### アプリケーション
 
-- **言語**: Go 1.23
+- **言語**: Go 1.25
 - **フレームワーク**: 標準ライブラリ（net/http）
 - **ロギング**: log/slog（JSON構造化ログ）
 - **メトリクス**: prometheus/client_golang
