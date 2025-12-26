@@ -128,11 +128,14 @@ eks-kubeconfig: ## Update kubeconfig for EKS
 eks-install-lbc: eks-create-lbc-sa ## Install AWS Load Balancer Controller
 	helm repo add eks https://aws.github.io/eks-charts || true
 	helm repo update
+	@VPC_ID=$$(cd infra/terraform/envs/dev && terraform output -raw vpc_id) && \
 	helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
 		-n kube-system \
 		--set clusterName=$(CLUSTER_NAME) \
 		--set serviceAccount.create=false \
-		--set serviceAccount.name=aws-load-balancer-controller
+		--set serviceAccount.name=aws-load-balancer-controller \
+		--set region=ap-northeast-1 \
+		--set vpcId=$$VPC_ID
 
 eks-create-lbc-sa: ## Create ServiceAccount for AWS LBC with IRSA
 	@LBC_ROLE_ARN=$$(cd infra/terraform/envs/dev && terraform output -raw aws_load_balancer_controller_role_arn) && \

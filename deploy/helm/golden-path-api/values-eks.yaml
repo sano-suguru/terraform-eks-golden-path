@@ -14,9 +14,9 @@ ingress:
         - path: /
           pathType: Prefix
 
-# ServiceMonitor for Prometheus
+# ServiceMonitor for Prometheus (disabled - Prometheus not installed on EKS)
 serviceMonitor:
-  enabled: true
+  enabled: false
   interval: 30s
 
 # Production-like resources
