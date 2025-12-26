@@ -106,5 +106,5 @@ func (h *Handler) RecordRequest(method, path, status string, duration float64) {
 func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(data) // エラーは無視（レスポンス書き込み失敗時はリカバリ不可）
 }
