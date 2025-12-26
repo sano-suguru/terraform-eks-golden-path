@@ -21,17 +21,24 @@ podAnnotations:
   prometheus.io/port: "8080"
   prometheus.io/path: "/metrics"
 
+# Pod Security Standards (PSS) - restricted level
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 65534
   fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
 
+# Container security context - PSS restricted level
 securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
       - ALL
   readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
 
 service:
   type: ClusterIP
@@ -76,6 +83,22 @@ autoscaling:
   minReplicas: 2
   maxReplicas: 10
   targetCPUUtilizationPercentage: 80
+
+# Namespace configuration
+namespace:
+  # Set to true to create namespace with PSS labels
+  # Set to false if namespace already exists
+  create: false
+  podSecurityStandard:
+    # enforce: Violations will cause pod rejection
+    # Levels: privileged, baseline, restricted
+    enforce: restricted
+    # warn: Violations trigger warnings
+    warn: restricted
+    # audit: Violations are recorded in audit logs
+    audit: restricted
+    # Kubernetes version for PSS (e.g., "v1.31", "latest")
+    version: latest
 
 nodeSelector: {}
 
