@@ -236,7 +236,7 @@ sequenceDiagram
 flowchart TB
     subgraph "Application"
         APP[golden-path-api]
-        METRICS[/metrics endpoint]
+        METRICS["/metrics endpoint"]
     end
 
     subgraph "Monitoring Stack"
