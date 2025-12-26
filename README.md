@@ -10,6 +10,36 @@ Platform Engineering ポートフォリオ：EKS + kind の二段構えで「Gol
 - **Guardrails**: CI で品質・セキュリティを強制（人の善意に依存しない）
 - **Reproducibility**: ローカル（kind）でもクラウド（EKS）でも同じ方法で動く
 
+## Golden Path（標準ルート）
+
+このリポジトリが定義する「新規サービスの標準」：
+
+### ロギング
+
+- **形式**: JSON 構造化ログ（`log/slog`）
+- **必須フィールド**: `method`, `path`, `status`, `latency_ms`
+- **除外**: `/healthz`, `/readyz`, `/metrics` はログ出力しない（ノイズ回避）
+
+### メトリクス
+
+- **形式**: Prometheus 形式（`/metrics` エンドポイント）
+- **必須メトリクス**:
+  - `http_requests_total{method,path,status}` - リクエストカウンター
+  - `http_request_duration_seconds{method,path}` - レイテンシヒストグラム
+
+### ヘルスチェック
+
+| エンドポイント | 用途 | 仕様 |
+|---------------|------|------|
+| `/healthz` | Liveness | 常に 200（依存なし） |
+| `/readyz` | Readiness | 初期化完了後に 200 |
+
+### デプロイ
+
+- **方式**: Helm チャート（kind/EKS 共通）
+- **環境差分**: `values-kind.yaml` / `values-eks.yaml` で吸収
+- **イメージ配布**: GHCR（GitHub Container Registry）で Public イメージ
+
 ## Quickstart（5分）
 
 ### 前提ツール
@@ -208,6 +238,71 @@ Settings → Variables → Repository variables に以下を追加：
 | `AWS_OIDC_ROLE_ARN` | `arn:aws:iam::<ACCOUNT_ID>:role/<ROLE_NAME>` |
 
 設定完了後、PR を作成すると自動で `terraform plan` が実行され、結果が PR コメントに投稿されます。
+
+## Security
+
+### 公開面（Exposure）
+
+- 外部公開は**必要なパスのみ**（`/`, `/healthz`, `/readyz`）
+- `/metrics` は外部公開しない（クラスター内からのみアクセス可能）
+- 管理系エンドポイント（`/debug` 等）は実装しない
+
+### 権限（Least Privilege）
+
+- AWS Load Balancer Controller は **IRSA** で最小権限
+- Terraform 実行権限は環境分離を想定（dev/stg/prod）
+- CI からの AWS 認証は **OIDC** を推奨（長期認証情報を避ける）
+
+### 機密（Secrets）
+
+- 機密情報は Git に置かない
+- Kubernetes Secret または外部 Secret 管理（AWS Secrets Manager 等）を使用
+- このリポジトリはダミー値で動作し、実運用時に Secret を投入する設計
+
+### 変更管理（Change Management）
+
+- すべての変更は PR 経由（main への直接 push 禁止）
+- CI で自動チェック（lint, test, terraform validate, policy check）
+- Terraform plan は PR コメントで可視化
+
+## 拡張（Plus）
+
+このリポジトリは以下の拡張に対応できる設計になっています：
+
+### HTTPS 対応（Route53 + ACM）
+
+```yaml
+# values-eks.yaml に追加
+ingress:
+  annotations:
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:...
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+```
+
+### Private Subnet 構成
+
+本番環境では NAT Gateway を追加し、ノードを Private Subnet に配置：
+
+```hcl
+# modules/vpc で private_subnets を追加
+# modules/eks で subnet_ids を private に変更
+```
+
+### Terraform State のリモート管理
+
+```hcl
+# backend.tf
+terraform {
+  backend "s3" {
+    bucket         = "your-terraform-state-bucket"
+    key            = "terraform-eks-golden-path/dev/terraform.tfstate"
+    region         = "ap-northeast-1"
+    dynamodb_table = "terraform-lock"
+    encrypt        = true
+  }
+}
+```
 
 ## Runbooks
 
