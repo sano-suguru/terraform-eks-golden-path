@@ -137,6 +137,77 @@ make eks-destroy
 - `terraform fmt -check` / `terraform validate`
 - `docker build`
 - `helm lint`
+- **Policy as Code** (Conftest/OPA)
+
+### Policy as Code
+
+`infra/terraform/policies/` に OPA/Rego ポリシーを定義し、Terraform plan に対してセキュリティチェックを実行します：
+
+| ポリシー | 説明 |
+|---------|------|
+| `deny_public_sg.rego` | 0.0.0.0/0 からの SSH / 全ポート開放を禁止 |
+| `deny_public_s3.rego` | S3 バケットの public ACL を禁止 |
+| `required_tags.rego` | 必須タグ（Environment, Project, ManagedBy）の警告 |
+
+ローカルで実行：
+
+```bash
+cd infra/terraform/envs/dev
+terraform plan -out=tfplan
+terraform show -json tfplan > tfplan.json
+conftest test tfplan.json -p ../../policies
+```
+
+### GitHub Actions OIDC（AWS認証）
+
+PR 時に自動で `terraform plan` を実行するには、AWS OIDC Provider の設定が必要です：
+
+#### 1. AWS OIDC Provider の作成
+
+```bash
+# AWS コンソールまたは CLI で作成
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
+```
+
+#### 2. IAM ロールの作成
+
+信頼ポリシー例：
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::<ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:<OWNER>/<REPO>:*"
+        }
+      }
+    }
+  ]
+}
+```
+
+#### 3. GitHub リポジトリ変数の設定
+
+Settings → Variables → Repository variables に以下を追加：
+
+| 変数名 | 値 |
+|--------|-----|
+| `AWS_OIDC_ROLE_ARN` | `arn:aws:iam::<ACCOUNT_ID>:role/<ROLE_NAME>` |
+
+設定完了後、PR を作成すると自動で `terraform plan` が実行され、結果が PR コメントに投稿されます。
 
 ## Runbooks
 

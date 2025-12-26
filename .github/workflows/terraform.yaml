@@ -10,20 +10,31 @@ on:
     paths:
       - "infra/terraform/**"
 
+# OIDCトークンの取得に必要
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  TF_VERSION: "1.7.0"
+  AWS_REGION: ap-northeast-1
+  WORKING_DIR: ./infra/terraform/envs/dev
+
 jobs:
   validate:
     name: Terraform Validate
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./infra/terraform/envs/dev
+        working-directory: ${{ env.WORKING_DIR }}
     steps:
       - uses: actions/checkout@v6
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.7.0"
+          terraform_version: ${{ env.TF_VERSION }}
 
       - name: Terraform Format Check
         run: terraform fmt -check -recursive ../..
@@ -33,3 +44,106 @@ jobs:
 
       - name: Terraform Validate
         run: terraform validate
+
+  policy-check:
+    name: Policy Check (Conftest)
+    runs-on: ubuntu-latest
+    needs: validate
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Conftest
+        run: |
+          CONFTEST_VERSION=0.46.0
+          curl -sSL https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz | tar xz
+          sudo mv conftest /usr/local/bin/
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init -backend=false
+
+      - name: Generate Terraform Plan (mock)
+        run: |
+          # 実際のAWS認証なしでポリシーをテストするためのモックプラン
+          # 本番ではOIDC認証後に実行
+          echo '{"resource_changes":[]}' > tfplan.json
+
+      - name: Run Conftest
+        run: |
+          conftest test tfplan.json -p ../../policies --no-fail
+          echo "✅ Policy check completed (no resources to check in mock plan)"
+
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    needs: [validate, policy-check]
+    # OIDC認証が設定されている場合のみ実行
+    if: github.event_name == 'pull_request' && vars.AWS_OIDC_ROLE_ARN != ''
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan -no-color -out=tfplan 2>&1 | tee plan_output.txt
+          terraform show -json tfplan > tfplan.json
+
+      - name: Run Conftest on Plan
+        run: |
+          curl -sSL https://github.com/open-policy-agent/conftest/releases/download/v0.46.0/conftest_0.46.0_Linux_x86_64.tar.gz | tar xz
+          sudo mv conftest /usr/local/bin/
+          conftest test tfplan.json -p ../../policies
+
+      - name: Comment Plan on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('${{ env.WORKING_DIR }}/plan_output.txt', 'utf8');
+            const truncatedPlan = plan.length > 60000 ? plan.substring(0, 60000) + '\n... (truncated)' : plan;
+            
+            const output = `## Terraform Plan 📋
+            
+            <details>
+            <summary>Show Plan</summary>
+            
+            \`\`\`hcl
+            ${truncatedPlan}
+            \`\`\`
+            
+            </details>
+            
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
