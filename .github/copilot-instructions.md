@@ -15,7 +15,11 @@ deploy/helm/golden-path-api/  # Helm chart（kind/EKS共通）
   values-kind.yaml            # kind用（nginx IngressClass）
   values-eks.yaml             # EKS用（alb IngressClass + HPA有効）
 deploy/kind/                  # kind設定、Prometheus values
-infra/terraform/              # EKSインフラ（※未実装 - 作成時はspec参照）
+infra/terraform/              # EKSインフラ
+  envs/dev/                   # 開発環境定義
+  modules/vpc/                # VPC, サブネット, EKS/ALBタグ
+  modules/eks/                # EKSクラスター, ノードグループ, OIDC Provider
+  modules/iam/                # AWS Load Balancer Controller用IRSA
 ```
 
 - **kind（ローカル）**: ingress-nginx + kube-prometheus-stack で即座に試せる
@@ -134,10 +138,10 @@ alb.ingress.kubernetes.io/healthcheck-path: /healthz
 
 ## Terraform（EKS 構築時）
 
-> ⚠️ `infra/terraform/` は未実装。作成時は `docs/00-spec.md` セクション 16 を参照。
-
 - **リージョン**: `ap-northeast-1` 固定
 - **VPC**: public subnet のみ（NAT Gateway 不要でコスト削減）
+- **EKS**: v1.31、マネージドノードグループ
+- **IRSA**: AWS Load Balancer Controller用のIAMロール
 - **命名**: `${project_name}-${env}`（例：`terraform-eks-golden-path-dev`）
 - **サブネットタグ必須**:
   - `kubernetes.io/cluster/<cluster_name> = shared`
