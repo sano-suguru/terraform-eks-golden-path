@@ -1,0 +1,26 @@
+# kind 環境用 values
+# IngressClass: nginx (ingress-nginx)
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+
+# ServiceMonitor for kube-prometheus-stack
+serviceMonitor:
+  enabled: true
+  interval: 15s
+
+# Smaller resources for local
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 10m
+    memory: 32Mi

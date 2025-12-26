@@ -1,0 +1,56 @@
+# kube-prometheus-stack values for kind
+# Minimal configuration for local development
+
+prometheus:
+  prometheusSpec:
+    # Lower resource requests for local
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    # Shorter retention for local
+    retention: 1d
+    # ServiceMonitor selector - match all
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+
+grafana:
+  adminPassword: prom-operator
+  # Lower resources
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  # Default dashboards
+  defaultDashboardsEnabled: true
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+
+# Disable components not needed for demo
+kubeStateMetrics:
+  enabled: true
+nodeExporter:
+  enabled: true
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeEtcd:
+  enabled: false
