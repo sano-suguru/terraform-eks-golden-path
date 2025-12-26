@@ -18,7 +18,7 @@ updates:
     labels:
       - "dependencies"
       - "go"
-    reviewers:
+    assignees:
       - "sano-suguru"
 
   # GitHub Actions
