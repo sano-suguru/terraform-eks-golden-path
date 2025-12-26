@@ -54,6 +54,17 @@ GH_PAGER='' gh pr merge <番号> --squash --delete-branch --admin
 GH_PAGER='' gh pr checks <番号> --watch
 ```
 
+### AWS CLI 使用時の注意
+
+- `aws` コマンド使用時は必ず `AWS_PAGER=""` を付ける（ページングによるブロックを防止）
+
+```bash
+# 例
+AWS_PAGER="" aws sts get-caller-identity
+AWS_PAGER="" aws eks describe-cluster --name terraform-eks-golden-path-dev
+AWS_PAGER="" aws budgets describe-budgets --account-id <account-id>
+```
+
 ### すべての操作は Makefile 経由
 
 ```bash
