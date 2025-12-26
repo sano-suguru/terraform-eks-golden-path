@@ -26,7 +26,7 @@ go.work
 *.tfstate
 *.tfstate.*
 *.tfplan
-.terraform.lock.hcl
+# .terraform.lock.hcl はコミットすべき（プロバイダーバージョン固定のため）
 crash.log
 override.tf
 override.tf.json
