@@ -23,6 +23,22 @@ infra/terraform/              # EKSインフラ（※未実装 - 作成時はspe
 
 ## Developer Workflow
 
+### Git 運用ルール
+
+- **main ブランチへ直接コミット禁止**: 必ず feature ブランチを作成し、PR 経由でマージする
+- **コミットメッセージは日本語で記述する**
+- **ブランチ命名規則**: `feature/機能名`, `fix/修正内容`, `docs/ドキュメント`
+
+```bash
+# 新機能開発の流れ
+git checkout -b feature/新機能名
+# ... 作業 ...
+git add -A
+git commit -m "feat: 新機能の説明"
+git push -u origin feature/新機能名
+# GitHub で PR を作成 → レビュー → マージ
+```
+
 ### すべての操作は Makefile 経由
 
 ```bash
