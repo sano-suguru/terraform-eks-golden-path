@@ -49,9 +49,9 @@ git push -u origin feature/新機能名
 
 ```bash
 # 例
-GH_PAGER='' gh api repos/owner/repo/branches/main/protection
-GH_PAGER='' gh pr list
-GH_PAGER='' gh issue list
+GH_PAGER='' gh pr create --title "タイトル" --body "説明"
+GH_PAGER='' gh pr merge <番号> --squash --delete-branch --admin
+GH_PAGER='' gh pr checks <番号> --watch
 ```
 
 ### すべての操作は Makefile 経由
@@ -61,27 +61,48 @@ GH_PAGER='' gh issue list
 make run              # Goアプリをローカル実行（port 8080）
 make test             # go test -v -race -cover
 make lint             # golangci-lint
-make ci               # lint + test + image-build を一括実行
+make ci               # lint + test + image-build を一括実行（PR前に必ず実行）
 
 # kind環境
 make kind-up          # クラスター作成 + ingress-nginx導入
+make obs-up           # kube-prometheus-stack導入（kind-deploy前に必要）
 make kind-deploy      # イメージビルド→ロード→Helmデプロイ
 make kind-status      # pods/svc/ingress確認
 curl http://localhost/healthz
 
 # 観測性
-make obs-up           # kube-prometheus-stack導入
 make kind-grafana     # port-forward → http://localhost:3000 (admin/prom-operator)
+
+# EKS環境
+make tf-init          # Terraform初期化
+make eks-apply        # EKS構築（約15分、コスト発生注意）
+make eks-kubeconfig   # kubeconfig設定
+make eks-install-lbc  # AWS Load Balancer Controller導入
+make eks-deploy       # アプリデプロイ
+make eks-url          # ALB DNS表示
+make eks-destroy      # 後片付け（必須！）
 ```
 
-### Make ターゲット命名規則
+### Makefile 変数
 
-- kind 系: `kind-*`（例：`kind-up`, `kind-deploy`）
-- EKS 系: `eks-*`（例：`eks-apply`, `eks-deploy`）
-- 観測性: `obs-*`（例：`obs-up`）
-- Terraform: `tf-*`（例：`tf-init`, `tf-fmt`）
+```makefile
+PROJECT_NAME := terraform-eks-golden-path
+CLUSTER_NAME := $(PROJECT_NAME)-$(ENV)  # terraform-eks-golden-path-dev
+IMAGE_REPO := ghcr.io/<user>/$(PROJECT_NAME)
+```
 
 ## Go Application Patterns
+
+### main.go の構造（`cmd/api/main.go`）
+
+```go
+// 必須実装
+- log/slog でJSON構造化ログ（slog.SetDefault）
+- http.Server のタイムアウト設定（Read: 10s, Write: 10s, Idle: 120s）
+- goroutineでサーバー起動
+- グレースフルシャットダウン（SIGINT/SIGTERM → 30s timeout）
+- PORT環境変数（デフォルト: 8080）
+```
 
 ### ハンドラー構造（`internal/handler/handler.go`）
 
@@ -95,6 +116,12 @@ GET /healthz  // Liveness（常に200、依存なし）
 GET /readyz   // Readiness（SetReady(true)後に200）
 GET /metrics  // Prometheus形式（外部公開禁止）
 ```
+
+### エラーハンドリング規約
+
+- サーバー起動エラー: `slog.Error` + `os.Exit(1)`
+- リクエストエラー: HTTP ステータスコード + `slog.Error`（構造化フィールド付き）
+- シャットダウンエラー: `slog.Error`（プロセスは終了させる）
 
 ### ロギング規約（`internal/middleware/logging.go`）
 
@@ -117,6 +144,15 @@ h.Healthz(rec, req)
 // rec.Code, rec.Body で検証
 ```
 
+### Dockerfile 規約（`app/Dockerfile`）
+
+- **マルチステージビルド**: `golang:1.25-alpine` → `scratch`
+- **レイヤーキャッシング最適化**: `go.mod`/`go.sum` を先に COPY
+- **静的バイナリ**: `CGO_ENABLED=0`, `-ldflags="-w -s"`
+- **最小イメージ**: `scratch` base（CA 証明書のみコピー）
+- **非 root ユーザー**: `USER 65534:65534`
+- **ポート**: 8080 固定
+
 ## Helm Chart Conventions
 
 ### 環境差分は values ファイルで吸収
@@ -138,14 +174,45 @@ alb.ingress.kubernetes.io/healthcheck-path: /healthz
 
 ## Terraform（EKS 構築時）
 
+### 基本方針
+
 - **リージョン**: `ap-northeast-1` 固定
 - **VPC**: public subnet のみ（NAT Gateway 不要でコスト削減）
 - **EKS**: v1.31、マネージドノードグループ
-- **IRSA**: AWS Load Balancer Controller用のIAMロール
+- **IRSA**: AWS Load Balancer Controller 用の IAM ロール
 - **命名**: `${project_name}-${env}`（例：`terraform-eks-golden-path-dev`）
 - **サブネットタグ必須**:
   - `kubernetes.io/cluster/<cluster_name> = shared`
   - `kubernetes.io/role/elb = 1`
+
+### Module 構造と責務
+
+#### `modules/vpc/`
+
+- VPC 作成（CIDR: 変数で指定）
+- Internet Gateway
+- Public subnets（2 つの AZ、ALB 配置用）
+- Route tables
+- **重要**: EKS/ALB 用のタグを自動付与
+
+#### `modules/eks/`
+
+- EKS クラスター作成（version 1.31）
+- マネージドノードグループ（instance type: t3.medium 等）
+- OIDC Provider（IRSA 前提）
+- Security Group（ノード間通信）
+
+#### `modules/iam/`
+
+- AWS Load Balancer Controller 用の IAM ロール（IRSA）
+- IAM ポリシー（ELB/EC2/Route53 の最小権限）
+- ServiceAccount 用の Trust Policy（OIDC 連携）
+
+### envs/dev/
+
+- 環境固有の変数定義（`terraform.tfvars`）
+- module 呼び出し（`main.tf`）
+- outputs 定義（cluster_name, endpoint 等）
 
 ## イメージ配布
 
@@ -161,12 +228,27 @@ alb.ingress.kubernetes.io/healthcheck-path: /healthz
 
 ## CI/Guardrails（`.github/workflows/`）
 
-CI で必ず落とすもの：
+### ci.yaml（PR/main push で実行）
+
+- **Go Build & Test**: `go test -v -race -coverprofile=coverage.out`
+- **Go Lint**: `golangci-lint`（最新版）
+- **Docker Build**: `docker/build-push-action`（GHA cache あり）
+- **Helm Lint**: `helm lint` + `helm template`（kind/EKS 両方）
+
+### terraform.yaml（Terraform ファイル変更時のみ）
+
+- **Terraform Format Check**: `terraform fmt -check -recursive`
+- **Terraform Init**: `-backend=false`（CI 用）
+- **Terraform Validate**: 構文チェック
+
+### CI で必ず落とすもの
 
 - `go test -race` 失敗
 - `golangci-lint` 違反
-- `terraform fmt -check` / `terraform validate` 失敗
-- Docker build / Helm lint 失敗
+- `terraform fmt -check` 失敗
+- `terraform validate` 失敗
+- Docker build 失敗
+- Helm lint/template 失敗
 
 ## Security Principles
 
