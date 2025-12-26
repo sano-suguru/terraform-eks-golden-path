@@ -68,6 +68,8 @@ make kind-down
 
 ## Architecture
 
+詳細なアーキテクチャ図は [docs/architecture.md](docs/architecture.md) を参照してください。
+
 ```text
 app/                    # Go HTTP API
 deploy/
@@ -89,10 +91,17 @@ infra/terraform/        # EKS インフラ（Terraform）
 
 ## Observability
 
-### SLI
+### SLO（Service Level Objectives）
 
-- **成功率**: 2xx / total（5 分窓）
-- **レイテンシ**: p95（5 分窓）
+| 指標 | 目標 | 計測窓 |
+|-----|------|-------|
+| 成功率 | 99.9% | 5分 |
+| p95 レイテンシ | < 200ms | 5分 |
+
+### SLI（Service Level Indicators）
+
+- **成功率**: `100 * (1 - sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])))`
+- **p95 レイテンシ**: `histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))`
 
 ### Grafana ダッシュボード
 
@@ -100,6 +109,19 @@ infra/terraform/        # EKS インフラ（Terraform）
 make obs-up        # kube-prometheus-stack をインストール
 make kind-grafana  # http://localhost:3000 (admin/prom-operator)
 ```
+
+#### ダッシュボード一覧
+
+| ファイル | 説明 |
+|---------|------|
+| `grafana-dashboard.json` | 基本メトリクス（RPS, Error Rate, Latency） |
+| `grafana-slo-dashboard.json` | SLO/SLI 専用（目標達成率、Error Budget） |
+
+**SLO ダッシュボードのインポート手順**:
+
+1. Grafana にログイン（admin / prom-operator）
+2. Dashboards → Import
+3. `deploy/kind/grafana-slo-dashboard.json` をアップロード
 
 ## EKS デプロイ
 
@@ -163,11 +185,16 @@ make eks-destroy
 
 以下が CI で自動チェックされます：
 
-- `go test` / `golangci-lint`
-- `terraform fmt -check` / `terraform validate`
-- `docker build`
-- `helm lint`
-- **Policy as Code** (Conftest/OPA)
+| チェック | 説明 | 失敗条件 |
+|---------|------|----------|
+| `go test` | ユニットテスト | テスト失敗 |
+| `golangci-lint` | Go コード品質 | lint 違反 |
+| `docker build` | イメージビルド | ビルド失敗 |
+| **Trivy** | 脆弱性スキャン | CRITICAL/HIGH 検出 |
+| `helm lint` | Helm チャート検証 | lint 違反 |
+| `terraform fmt` | フォーマットチェック | 未フォーマット |
+| `terraform validate` | 構文チェック | 構文エラー |
+| **Conftest/OPA** | Policy as Code | ポリシー違反 |
 
 ### Policy as Code
 
@@ -240,6 +267,30 @@ Settings → Variables → Repository variables に以下を追加：
 設定完了後、PR を作成すると自動で `terraform plan` が実行され、結果が PR コメントに投稿されます。
 
 ## Security
+
+### Pod Security Standards (PSS)
+
+Kubernetes の Pod Security Standards に準拠し、**restricted** レベルを適用：
+
+- `runAsNonRoot: true` - root ユーザーでの実行を禁止
+- `allowPrivilegeEscalation: false` - 特権昇格を禁止
+- `seccompProfile: RuntimeDefault` - Seccomp プロファイルを強制
+- `capabilities.drop: [ALL]` - すべての Linux capability を削除
+
+```yaml
+# Namespace に PSS ラベルを適用
+pod-security.kubernetes.io/enforce: restricted
+pod-security.kubernetes.io/warn: restricted
+pod-security.kubernetes.io/audit: restricted
+```
+
+### 脆弱性スキャン（Trivy）
+
+CI で Docker イメージの脆弱性をスキャン：
+
+- **検出レベル**: CRITICAL, HIGH
+- **動作**: 脆弱性検出時に CI を失敗させる
+- **スキップ**: 修正未提供の脆弱性は無視（`ignore-unfixed: true`）
 
 ### 公開面（Exposure）
 
