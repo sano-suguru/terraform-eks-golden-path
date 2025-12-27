@@ -35,28 +35,81 @@ EKS + kind の二段構えで、サービス立ち上げ時の「Golden Path（�
 
 ### 全体像
 
+開発者は GitHub にプッシュすると CI が自動実行され、ローカル（kind）とクラウド（EKS）に同じ Helm チャートでデプロイできます。
+
 ```mermaid
 flowchart LR
-    DEV[開発者] -->|git push| CI[GitHub Actions]
-    DEV -->|make kind-deploy| KIND[kind ローカル]
-    DEV -->|make eks-deploy| EKS[EKS クラウド]
+    subgraph dev[Developer]
+        DEV[Developer]
+    end
+
+    subgraph ci[CI/CD]
+        GHA[GitHub Actions]
+        TEST[Test / Lint]
+        SCAN[Trivy / OPA]
+    end
+
+    subgraph local[Local]
+        KIND[kind Cluster]
+    end
+
+    subgraph cloud[Cloud]
+        EKS[EKS Cluster]
+    end
+
+    DEV -->|git push| GHA
+    GHA --> TEST
+    GHA --> SCAN
+    DEV -->|make kind-deploy| KIND
+    DEV -->|make eks-deploy| EKS
 ```
 
 ### kind（ローカル）
 
+AWS アカウント不要で動作確認できる環境。ingress-nginx 経由でアクセスし、Prometheus + Grafana でメトリクスを確認できます。
+
 ```mermaid
 flowchart LR
-    Browser[localhost] --> Ingress[ingress-nginx] --> App[API]
-    Prometheus --> App
-    Grafana --> Prometheus
+    subgraph host[Host Machine]
+        Browser[localhost:80]
+    end
+
+    subgraph cluster[kind Cluster]
+        Ingress[ingress-nginx]
+        App[golden-path-api]
+        Prom[Prometheus]
+        Graf[Grafana]
+    end
+
+    Browser --> Ingress --> App
+    App -.->|/metrics| Prom
+    Prom --> Graf
 ```
 
 ### EKS（クラウド）
 
+Terraform で VPC/EKS を構築し、AWS Load Balancer Controller が ALB を自動作成。IRSA で最小権限を付与しています。
+
 ```mermaid
 flowchart LR
-    Internet --> ALB[ALB] --> App[API]
-    LBC[LB Controller] -.->|creates| ALB
+    subgraph internet[Internet]
+        User[User]
+    end
+
+    subgraph aws[AWS]
+        ALB[ALB]
+        App[golden-path-api]
+        LBC[LB Controller]
+        IRSA[IRSA]
+    end
+
+    subgraph iac[IaC]
+        TF[Terraform]
+    end
+
+    User --> ALB --> App
+    TF -.->|creates| ALB
+    LBC -.->|manages| ALB
     IRSA -.->|auth| LBC
 ```
 
