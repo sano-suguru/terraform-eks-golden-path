@@ -179,6 +179,21 @@ tf-validate: ## Validate Terraform files
 # =============================================================================
 # CI Helpers
 # =============================================================================
-.PHONY: ci
-ci: lint test image-build ## Run all CI checks locally
-	@echo "All CI checks passed!"
+.PHONY: ci ci-quick helm-lint
+ci: lint test image-build helm-lint tf-fmt tf-validate ## Run all CI checks locally (full)
+	@echo ""
+	@echo "=========================================="
+	@echo "✅ All CI checks passed!"
+	@echo "=========================================="
+
+ci-quick: lint test ## Run quick CI checks (lint + test only)
+	@echo ""
+	@echo "=========================================="
+	@echo "✅ Quick CI checks passed!"
+	@echo "=========================================="
+
+helm-lint: ## Lint Helm charts
+	helm lint ./deploy/helm/golden-path-api
+	helm template golden-path-api ./deploy/helm/golden-path-api -f ./deploy/helm/golden-path-api/values-kind.yaml > /dev/null
+	helm template golden-path-api ./deploy/helm/golden-path-api -f ./deploy/helm/golden-path-api/values-eks.yaml > /dev/null
+	@echo "Helm lint passed!"
