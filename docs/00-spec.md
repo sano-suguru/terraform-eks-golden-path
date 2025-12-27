@@ -93,41 +93,48 @@
 
 ---
 
-## 4. リポジトリ構成案
+## 4. リポジトリ構成
 
 ```txt
 repo/
-  README.md
+  README.md                    # 主要ドキュメント（What/Why, Golden Path, Quickstart, Guardrails, Observability, Terraform）
+  Makefile                     # コマンド契約（kind-*, eks-*, ci 等）
   docs/
-    00-why.md
-    01-golden-path.md
-    02-guardrails.md
-    03-observability.md
-    04-runbook.md
-    05-architecture.md
+    00-spec.md                 # 設計仕様書（本ドキュメント）
+    architecture.md            # アーキテクチャ図（Mermaid）
+    runbook-high-error-rate.md # Runbook: 高エラー率
+    runbook-latency-regression.md # Runbook: レイテンシ劣化
   app/
-    cmd/api/
-    internal/
-    Dockerfile
+    cmd/api/                   # エントリーポイント
+    internal/                  # ハンドラー、ミドルウェア
+    Dockerfile                 # マルチステージビルド
   deploy/
     helm/
-      chart/
+      golden-path-api/         # Helm チャート（kind/EKS 共通）
+        values.yaml            # 共通設定
+        values-kind.yaml       # kind 用オーバーライド
+        values-eks.yaml        # EKS 用オーバーライド
     kind/
-      kind-config.yaml
+      kind-config.yaml         # kind クラスター設定
+      prometheus-values.yaml   # kube-prometheus-stack 設定
+      grafana-dashboard.json   # カスタムダッシュボード
   infra/
     terraform/
-      envs/
-        dev/
+      envs/dev/                # 環境定義（dev のみ実装）
       modules/
-        eks/
-        vpc/
-        iam/
-        alb/
-        dns/
-  .github/workflows/
-    ci.yaml
-    terraform-plan.yaml
+        vpc/                   # VPC、サブネット、IGW
+        eks/                   # EKS クラスター、ノードグループ
+        iam/                   # IRSA（AWS LBC 用）
+      policies/                # OPA/Conftest ポリシー
+  .github/
+    workflows/
+      ci.yaml                  # Go lint/test, Docker build, Helm lint
+      terraform.yaml           # Terraform fmt/validate
+    copilot-instructions.md    # Copilot 用コンテキスト
 ```
+
+> **設計方針**: 主要なコンテンツは README.md に統合し、評価者が最短で全体像を把握できるようにしている。
+> docs/ には設計仕様書（本ドキュメント）、アーキテクチャ図、運用 Runbook のみを配置する。
 
 ---
 
