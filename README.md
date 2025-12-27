@@ -66,6 +66,18 @@ curl http://localhost/healthz
 make kind-down
 ```
 
+### ローカル CI 実行
+
+PR 作成前にローカルで CI チェックを一括実行できます：
+
+```bash
+# 全 CI チェック（lint, test, docker build, helm lint, terraform fmt/validate）
+make ci
+
+# クイックチェック（lint + test のみ）
+make ci-quick
+```
+
 ## Architecture
 
 詳細なアーキテクチャ図は [docs/architecture.md](docs/architecture.md) を参照してください。
