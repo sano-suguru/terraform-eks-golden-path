@@ -78,6 +78,25 @@ make ci
 make ci-quick
 ```
 
+### Git Hooks（開発者体験の向上）
+
+[lefthook](https://github.com/evilmartians/lefthook) を使用して、コミット/プッシュ前に自動チェックを実行します：
+
+```bash
+# Git hooks をインストール
+make hooks-install
+
+# hooks をスキップしたい場合
+LEFTHOOK=0 git commit -m "skip hooks"
+```
+
+| フック | タイミング | 実行内容 | スキップ条件 |
+|-------|-----------|---------|-------------|
+| pre-commit | コミット前 | Go lint/fmt, Terraform fmt | merge, rebase |
+| pre-push | プッシュ前 | Go test | merge, rebase |
+
+> 💡 **hooks は任意です**。CI が最終的なガードレールとして機能するため、hooks をスキップしても品質は担保されます。merge/rebase 時は自動的にスキップされます。
+
 ## Architecture
 
 詳細なアーキテクチャ図は [docs/architecture.md](docs/architecture.md) を参照してください。
