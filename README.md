@@ -242,16 +242,22 @@ make eks-destroy
 - [高エラー率への対応](docs/runbook-high-error-rate.md)
 - [レイテンシ劣化への対応](docs/runbook-latency-regression.md)
 
-## 設計で意識したこと
+## 設計上のトレードオフ
 
-ローカルで即座に動作確認できることを優先しています。
-本番向けの構成にする場合は、以下のように拡張できます。
+このリポジトリは「ローカルで即座に動作確認できること」を優先しています。
+本番環境では要件に応じて以下の拡張が必要です。
 
-| 現状 | 理由 | 拡張する場合 |
-|-----|------|-------------|
-| HTTP のみ | 独自ドメイン不要で即座に検証可能 | Route53 + ACM で HTTPS 化 |
-| Public Subnet | NAT Gateway 不要でコスト最小 | Private Subnet + NAT 構成 |
-| ローカル state | 追加の AWS 設定不要 | S3 + DynamoDB でチーム共有 |
+### HTTP のみ（HTTPS なし）
+
+独自ドメインを前提としないため、ALB の DNS 名で HTTP アクセスする構成にしています。本番では Route53 + ACM で HTTPS 化します。
+
+### Public Subnet のみ（NAT Gateway なし）
+
+外部 API 連携がなく、コスト最小化を優先しているため Public Subnet のみの構成です。IP 制限のある外部サービス（決済 API 等）と連携する場合は、Private Subnet + NAT Gateway で出口 IP を固定する必要があります。
+
+### ローカル state
+
+追加の AWS 設定なしで `terraform apply` できることを優先しています。チーム開発では S3 + DynamoDB による state 共有が必要です。
 
 ## License
 
