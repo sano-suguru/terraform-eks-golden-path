@@ -4,25 +4,21 @@
 [![Terraform](https://github.com/sano-suguru/terraform-eks-golden-path/actions/workflows/terraform.yaml/badge.svg)](https://github.com/sano-suguru/terraform-eks-golden-path/actions/workflows/terraform.yaml)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Platform Engineering ポートフォリオ：EKS + kind の二段構えで「Golden Path（標準化）+ Guardrails（強制力）+ Reproducibility（再現性）」を実証する。
+EKS + kind の二段構えで、サービス立ち上げ時の「Golden Path（標準化）+ Guardrails（自動チェック）」を形にしたリポジトリです。
 
-## 解決する課題
+## このリポジトリについて
 
-新しいサービスを作るたびに、ログ形式、メトリクス、ヘルスチェック、デプロイ方法を一から決めていませんか？
+新しいサービスを立ち上げるとき、ログ形式やメトリクス、ヘルスチェック、デプロイ方法をどうするか迷うことが多いと感じていました。チームごとに違う方式になると、後から運用が大変になります。
 
-![課題](https://mermaid.ink/img/pako:eNptkMEKwjAMhl8l5KSgb9CDIHgQvHjx5KXbsi5uTWnTgYi-u9OJiHoI_PlDvhDm0MuAwME4f5fBqXZdGaZpKMgHSxPGMPJaFq_UxmBjlDSk-uDxxz7G9hqNkEoPLJx4bJLoXA-BmNd5j5b0wML8cN4A?type=png)
+そこで、以下の3つを意識して作りました：
 
-チームごとに異なる方式が乱立し、運用負荷が増大します。
+| 柱 | やったこと |
+|---|------------|
+| **Golden Path** | ログ・メトリクス・ヘルスチェック・デプロイを最初から決めておく |
+| **Guardrails** | CI で lint、テスト、脆弱性スキャンを自動実行 |
+| **Reproducibility** | kind（ローカル）でも EKS（AWS）でも同じ Helm チャートで動く |
 
-## 解決策：3つの柱
-
-| 柱 | 説明 | 実装 |
-|---|------|------|
-| **Golden Path** | ログ・メトリクス・ヘルスチェック・デプロイを標準化 | JSON ログ、Prometheus メトリクス、Helm チャート |
-| **Guardrails** | 品質・セキュリティを CI で強制 | golangci-lint, Trivy, OPA/Conftest |
-| **Reproducibility** | ローカルでもクラウドでも同じ方法で動く | kind + EKS で共通 Helm チャート |
-
-## 技術スタック
+## 使っている技術
 
 | カテゴリ | 技術 |
 |---------|------|
@@ -148,7 +144,7 @@ make eks-destroy
 
 📖 **[技術解説 (IMPLEMENTATION.md)](docs/IMPLEMENTATION.md)**
 
-README では触れていない以下の内容を詳しく解説しています：
+設計・実装時に考えたことや、具体的なコード例をまとめています：
 
 - **Golden Path の詳細** - ログ・メトリクス・ヘルスチェックの実装
 - **Observability** - SLO/SLI 設計、Grafana ダッシュボード、アラート条件
@@ -156,6 +152,7 @@ README では触れていない以下の内容を詳しく解説しています�
 - **Terraform モジュール** - VPC、EKS、IRSA の設計
 - **Security** - Pod Security Standards、脆弱性スキャン
 - **CI/CD パイプライン** - GitHub Actions、OIDC 認証
+- **トレードオフと今後の課題** - 現状の設計判断と拡張方針
 
 ### その他のドキュメント
 
@@ -167,11 +164,12 @@ README では触れていない以下の内容を詳しく解説しています�
 - [高エラー率への対応](docs/runbook-high-error-rate.md)
 - [レイテンシ劣化への対応](docs/runbook-latency-regression.md)
 
-## 設計上のトレードオフ
+## 設計で意識したこと
 
-このリポジトリは**ローカルで即座に動作確認できる**ことを優先した設計です。
+ローカルで即座に動作確認できることを優先しています。
+本番向けの構成にする場合は、以下のように拡張できます。
 
-| 選択 | 理由 | 本番向け代替 |
+| 現状 | 理由 | 拡張する場合 |
 |-----|------|-------------|
 | HTTP のみ | 独自ドメイン不要で即座に検証可能 | Route53 + ACM で HTTPS 化 |
 | Public Subnet | NAT Gateway 不要でコスト最小 | Private Subnet + NAT 構成 |
