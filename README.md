@@ -33,7 +33,57 @@ EKS + kind の二段構えで、サービス立ち上げ時の「Golden Path（�
 
 ## アーキテクチャ
 
-![アーキテクチャ](https://mermaid.ink/img/pako:eNp1kE1qwzAQha9izCpQ5wJeFEJ-IN0UstJGO5VlxQiNhCTHhJC717FdaNPuZnjvG94M8ILKe4QC1DjfdnBqvYy-7_toKXhP0xz9gLdp_Ul1iK4xSppaVXD9sY-RMUQnVL1xH2VuklSxQ8-8LjJaGbDxNJwfyMgqR7Z6jkaNrLJ_W-6P8J5qH7x8_AVKX0-_-S5Ue2O14-O2bV8?type=png)
+```mermaid
+flowchart TB
+    subgraph "Developer Environment"
+        DEV[開発者]
+        GIT[GitHub Repository]
+    end
+
+    subgraph "CI/CD Pipeline"
+        GHA[GitHub Actions]
+        TRIVY[Trivy Scanner]
+        HELM_LINT[Helm Lint]
+        GO_TEST[Go Test/Lint]
+        CONFTEST[Conftest/OPA]
+    end
+
+    subgraph "Local (kind)"
+        KIND[kind Cluster]
+        NGINX[ingress-nginx]
+        PROM_LOCAL[Prometheus]
+        GRAFANA_LOCAL[Grafana]
+        APP_LOCAL[golden-path-api]
+    end
+
+    subgraph "AWS (EKS)"
+        VPC[VPC]
+        EKS[EKS Cluster]
+        ALB[Application Load Balancer]
+        LBC[AWS LB Controller]
+        APP_EKS[golden-path-api]
+        IRSA[IRSA]
+    end
+
+    DEV -->|git push| GIT
+    GIT -->|trigger| GHA
+    GHA --> TRIVY
+    GHA --> HELM_LINT
+    GHA --> GO_TEST
+    GHA --> CONFTEST
+
+    DEV -->|make kind-deploy| KIND
+    KIND --> NGINX
+    KIND --> PROM_LOCAL
+    KIND --> GRAFANA_LOCAL
+    NGINX --> APP_LOCAL
+
+    DEV -->|make eks-deploy| EKS
+    EKS --> LBC
+    LBC -->|creates| ALB
+    ALB --> APP_EKS
+    IRSA -.->|auth| LBC
+```
 
 詳細は [docs/architecture.md](docs/architecture.md) を参照。
 
