@@ -33,55 +33,30 @@ EKS + kind の二段構えで、サービス立ち上げ時の「Golden Path（�
 
 ## アーキテクチャ
 
+### 全体像
+
 ```mermaid
-flowchart TB
-    subgraph "Developer Environment"
-        DEV[開発者]
-        GIT[GitHub Repository]
-    end
+flowchart LR
+    DEV[開発者] -->|git push| CI[GitHub Actions]
+    DEV -->|make kind-deploy| KIND[kind ローカル]
+    DEV -->|make eks-deploy| EKS[EKS クラウド]
+```
 
-    subgraph "CI/CD Pipeline"
-        GHA[GitHub Actions]
-        TRIVY[Trivy Scanner]
-        HELM_LINT[Helm Lint]
-        GO_TEST[Go Test/Lint]
-        CONFTEST[Conftest/OPA]
-    end
+### kind（ローカル）
 
-    subgraph "Local (kind)"
-        KIND[kind Cluster]
-        NGINX[ingress-nginx]
-        PROM_LOCAL[Prometheus]
-        GRAFANA_LOCAL[Grafana]
-        APP_LOCAL[golden-path-api]
-    end
+```mermaid
+flowchart LR
+    Browser[localhost] --> Ingress[ingress-nginx] --> App[API]
+    Prometheus --> App
+    Grafana --> Prometheus
+```
 
-    subgraph "AWS (EKS)"
-        VPC[VPC]
-        EKS[EKS Cluster]
-        ALB[Application Load Balancer]
-        LBC[AWS LB Controller]
-        APP_EKS[golden-path-api]
-        IRSA[IRSA]
-    end
+### EKS（クラウド）
 
-    DEV -->|git push| GIT
-    GIT -->|trigger| GHA
-    GHA --> TRIVY
-    GHA --> HELM_LINT
-    GHA --> GO_TEST
-    GHA --> CONFTEST
-
-    DEV -->|make kind-deploy| KIND
-    KIND --> NGINX
-    KIND --> PROM_LOCAL
-    KIND --> GRAFANA_LOCAL
-    NGINX --> APP_LOCAL
-
-    DEV -->|make eks-deploy| EKS
-    EKS --> LBC
-    LBC -->|creates| ALB
-    ALB --> APP_EKS
+```mermaid
+flowchart LR
+    Internet --> ALB[ALB] --> App[API]
+    LBC[LB Controller] -.->|creates| ALB
     IRSA -.->|auth| LBC
 ```
 
