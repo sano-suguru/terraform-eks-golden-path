@@ -358,9 +358,17 @@ CI で Docker イメージの脆弱性をスキャン：
 - CI で自動チェック（lint, test, terraform validate, policy check）
 - Terraform plan は PR コメントで可視化
 
-## 拡張（Plus）
+## 設計上のトレードオフ
 
-このリポジトリは以下の拡張に対応できる設計になっています：
+このリポジトリは**ローカルで即座に動作確認できる**ことを優先した設計です。
+
+| 選択 | 理由 | 本番向け代替 |
+|-----|------|-------------|
+| HTTP のみ | 独自ドメイン不要で即座に検証可能 | Route53 + ACM で HTTPS 化 |
+| Public Subnet | NAT Gateway 不要でコスト最小 | Private Subnet + NAT 構成 |
+| ローカル state | 追加の AWS 設定不要 | S3 + DynamoDB でチーム共有 |
+
+## 本番環境への拡張
 
 ### HTTPS 対応（Route53 + ACM）
 
@@ -375,7 +383,7 @@ ingress:
 
 ### Private Subnet 構成
 
-本番環境では NAT Gateway を追加し、ノードを Private Subnet に配置：
+NAT Gateway を追加し、ノードを Private Subnet に配置：
 
 ```hcl
 # modules/vpc で private_subnets を追加
