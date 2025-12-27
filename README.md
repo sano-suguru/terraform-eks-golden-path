@@ -191,10 +191,21 @@ make eks-destroy
 | `golangci-lint` | Go コード品質 | lint 違反 |
 | `docker build` | イメージビルド | ビルド失敗 |
 | **Trivy** | 脆弱性スキャン | CRITICAL/HIGH 検出 |
+| **Syft SBOM** | SBOM 生成 | - |
 | `helm lint` | Helm チャート検証 | lint 違反 |
 | `terraform fmt` | フォーマットチェック | 未フォーマット |
 | `terraform validate` | 構文チェック | 構文エラー |
 | **Conftest/OPA** | Policy as Code | ポリシー違反 |
+
+### SBOM（Software Bill of Materials）
+
+CI でビルドされた Docker イメージから [Syft](https://github.com/anchore/syft) を使用して SBOM を自動生成します：
+
+- **形式**: SPDX JSON（業界標準）
+- **保存期間**: 90 日間
+- **用途**: サプライチェーンセキュリティ、脆弱性追跡、ライセンスコンプライアンス
+
+SBOM は GitHub Actions のアーティファクトからダウンロード可能です。
 
 ### Policy as Code
 
