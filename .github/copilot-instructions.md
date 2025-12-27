@@ -285,5 +285,6 @@ alb.ingress.kubernetes.io/healthcheck-path: /healthz
 
 ## Reference
 
-- 詳細仕様: [docs/00-spec.md](../docs/00-spec.md)
+- 技術解説: [docs/IMPLEMENTATION.md](../docs/IMPLEMENTATION.md)
+- 設計仕様: [docs/00-spec.md](../docs/00-spec.md)
 - Runbook: [docs/runbook-high-error-rate.md](../docs/runbook-high-error-rate.md), [docs/runbook-latency-regression.md](../docs/runbook-latency-regression.md)
