@@ -1,0 +1,48 @@
+# lefthook.yml - Git hooks の標準化
+# https://github.com/evilmartians/lefthook
+#
+# インストール: make hooks-install
+# スキップ: LEFTHOOK=0 git commit -m "..."
+
+# 出力設定
+output:
+  - summary
+  - success
+  - failure
+
+pre-commit:
+  parallel: true
+  commands:
+    go-lint:
+      tags: [backend, lint]
+      glob: "*.go"
+      run: cd app && golangci-lint run --fix ./...
+      stage_fixed: true
+      skip:
+        - merge
+        - rebase
+    go-fmt:
+      tags: [backend, fmt]
+      glob: "*.go"
+      run: cd app && go fmt ./...
+      stage_fixed: true
+      skip:
+        - merge
+        - rebase
+    terraform-fmt:
+      tags: [infra, fmt]
+      glob: "*.tf"
+      run: terraform fmt -recursive infra/terraform/
+      stage_fixed: true
+      skip:
+        - merge
+        - rebase
+
+pre-push:
+  commands:
+    test:
+      tags: [backend, test]
+      run: cd app && go test -race ./...
+      skip:
+        - merge
+        - rebase

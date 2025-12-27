@@ -179,7 +179,7 @@ tf-validate: ## Validate Terraform files
 # =============================================================================
 # CI Helpers
 # =============================================================================
-.PHONY: ci ci-quick helm-lint
+.PHONY: ci ci-quick helm-lint hooks-install
 ci: lint test image-build helm-lint tf-fmt tf-validate ## Run all CI checks locally (full)
 	@echo ""
 	@echo "=========================================="
@@ -197,3 +197,8 @@ helm-lint: ## Lint Helm charts
 	helm template golden-path-api ./deploy/helm/golden-path-api -f ./deploy/helm/golden-path-api/values-kind.yaml > /dev/null
 	helm template golden-path-api ./deploy/helm/golden-path-api -f ./deploy/helm/golden-path-api/values-eks.yaml > /dev/null
 	@echo "Helm lint passed!"
+
+hooks-install: ## Install git hooks with lefthook
+	@which lefthook > /dev/null || (echo "Installing lefthook..." && brew install lefthook)
+	lefthook install
+	@echo "Git hooks installed!"
